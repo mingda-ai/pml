@@ -1,0 +1,63 @@
+---
+title: "Proctical Machine Learning"
+author: "Mingda Ai"
+date: "Monday, May 25, 2015"
+output: html_document
+---
+
+Based on the data recorded from people using Activity Monitors on wearable devices, we will try to construct a macine learning algorithm to predict future outcomes on the test data. I am using Random Forest Modeling, and got over 99% accuracy.
+
+Load Files
+---
+There are lots of #DIV/0! in the original data file, we should treat it as NA.
+```{r}
+library(caret)
+url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+pml_data<-read.csv(url, na.strings=c("#DIV/0!","NA"))
+url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+pml_test<-read.csv(url)
+```
+
+Clean data
+---
+We will remove the columns which has na values. 
+And the columns from X to num_window looks no use in this learning job.
+
+```{r}
+isAnyMissing <- sapply(pml_data, function (x) any(is.na(x) | x == ""))
+pml_clean_data<-pml_data[, !isAnyMissing]
+pml_clean_data<-pml_clean_data[,-(1:7)]
+```
+
+Create model
+---
+
+```{r}
+inTrain <- createDataPartition(y=pml_clean_data$classe, p=0.75, list=FALSE)
+training<-pml_clean_data[inTrain,]
+testing<-pml_clean_data[-inTrain,]
+
+library(parallel)
+library(doParallel)
+cl <- makeCluster(detectCores() - 1)
+registerDoParallel(cl)
+modFit <- train(classe ~ ., preProcess=c("center","scale"), data=training, method="rf")
+stopCluster(cl)
+```
+
+Evaluation the model
+---
+
+```{r}
+predict_tr <- predict(modFit, newdata=testing)
+confusionMatrix(predict_tr, testing$classe)
+```
+As seen by the result of the confusionmatrix, the model is good and efficient because it has an accuracy of 99.41 and very good sensitivity & specificity values on the testing dataset. 
+
+
+make prediction on the test data
+---
+
+```{r}
+predict(modFit, newdata=pml_test)
+```
